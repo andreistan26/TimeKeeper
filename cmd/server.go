@@ -10,7 +10,9 @@ func CreateServerCommand() *cobra.Command {
 		Use:  "server",
 		Long: "Starts the server",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			server.StartServer(cmd.Context())
+			if err := server.StartServer(cmd.Context()); err != nil {
+				return err
+			}
 			return nil
 		},
 	}

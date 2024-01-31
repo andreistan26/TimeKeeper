@@ -12,6 +12,7 @@ import (
 	timekeeper "github.com/andreistan26/TimeKeeper/proto"
 	"github.com/go-redis/redis/v8"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
+	_ "github.com/mattn/go-sqlite3"
 	"google.golang.org/grpc"
 )
 
@@ -25,8 +26,8 @@ var (
 	influxDBOrg    = "TimeKeeper"
 	influxDBBucket = "test"
 
-	redisAddr = "http://localhost:6379"
-	redisPass = os.Getenv("TK_REDIS_PASS")
+	redisAddr = "localhost:6379"
+	//redisPass = os.Getenv("TK_REDIS_PASS")
 )
 
 type TimeKeeperServer struct {
@@ -53,9 +54,8 @@ func (tk *TimeKeeperServer) ConnectSqliteDB() error {
 
 func (tk *TimeKeeperServer) ConnectRedis() error {
 	tk.RedisClient = redis.NewClient(&redis.Options{
-		Addr:     redisAddr,
-		Password: redisPass,
-		DB:       0,
+		Addr: redisAddr,
+		DB:   0,
 	})
 	return nil
 }
@@ -68,13 +68,18 @@ func (tk *TimeKeeperServer) ConnectInfluxDB() error {
 func (tk *TimeKeeperServer) Register(ctx context.Context, req *timekeeper.RegisterRequest) (*timekeeper.RegisterResponse, error) {
 	resp := &timekeeper.RegisterResponse{}
 	if req.Id == 0 {
-		result, err := tk.DB.Exec("INSERT INTO data_sources (machine) VALUES (?)", req.MachineName)
+		result, err := tk.DB.Exec(
+			`INSERT INTO data_sources (machine)
+			SELECT (?)
+			WHERE NOT EXISTS(SELECT 1 FROM data_sources WHERE machine = ?)`, req.MachineName, req.MachineName)
 		if err != nil {
+			log.Printf("Error inserting data into db: %v", err)
 			return nil, err
 		}
 
 		id, err := result.LastInsertId()
 		if err != nil {
+			log.Printf("Error getting last inserted id: %v", err)
 			return nil, err
 		}
 
@@ -88,6 +93,7 @@ func (tk *TimeKeeperServer) Register(ctx context.Context, req *timekeeper.Regist
 			},
 		)
 		if ret.Err() != nil {
+			log.Printf("Error inserting data into redis: %v", ret.Err())
 			return nil, err
 		}
 
@@ -147,7 +153,10 @@ func (tk *TimeKeeperServer) SendData(ctx context.Context, req *timekeeper.SendDa
 func StartServer(ctx context.Context) error {
 	// start db connection
 	tkServer := &TimeKeeperServer{}
-	tkServer.ConnectSqliteDB()
+	err := tkServer.ConnectSqliteDB()
+	if err != nil {
+		return err
+	}
 	defer tkServer.DB.Close()
 
 	tkServer.ConnectInfluxDB()
@@ -161,7 +170,7 @@ func StartServer(ctx context.Context) error {
 		return errors.New("TK_GRPC_PORT env var not set")
 	}
 
-	listener, err := net.Listen("tcp", grpcPort)
+	listener, err := net.Listen("tcp", ":"+grpcPort)
 	if err != nil {
 		return err
 	}
