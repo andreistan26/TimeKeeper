@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package timekeeper;
+
+enum DataPointState {
+    EXIT = 0;
+    INACTIVE = 1;
+    ENTER = 2;
+    SAMPLE = 3;
+}
+
+message RegisterRequest {
+    string ip_address = 1;
+    string machine_name = 2;
+    uint64 id = 3;
+}
+
+message DataPoint {
+	google.protobuf.Timestamp timestamp = 1;
+    string label = 2;
+    DataPointState state = 3;
+}
+
+message SendDataRequest {
+	repeated DataPoint data_points = 1;
+    uint64 id = 2;
+}
+
+message RegisterResponse {
+	uint64 id = 1;
+}
+
+message SendDataResponse {
+	// EMPTY
+}
+
+service TimeKeeperService {
+    rpc Register(RegisterRequest) returns (RegisterResponse);
+    rpc SendData(SendDataRequest) returns (SendDataResponse);
+}
