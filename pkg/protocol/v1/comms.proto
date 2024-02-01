@@ -2,7 +2,7 @@ syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
 
-package timekeeper;
+package protocol.v1;
 
 enum DataPointState {
     EXIT = 0;

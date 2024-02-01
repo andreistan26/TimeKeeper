@@ -9,7 +9,7 @@ import (
 	"net"
 	"os"
 
-	timekeeper "github.com/andreistan26/TimeKeeper/proto"
+	timekeeper "github.com/andreistan26/TimeKeeper/pkg/protocol/v1"
 	"github.com/go-redis/redis/v8"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	_ "github.com/mattn/go-sqlite3"
