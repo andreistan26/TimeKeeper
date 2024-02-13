@@ -6,7 +6,6 @@ import (
 
 	protocol_v1 "github.com/andreistan26/TimeKeeper/pkg/protocol/v1/protobuf"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
 )
 
 type EventListener interface {
