@@ -31,6 +31,7 @@ var (
 )
 
 type TimeKeeperServer struct {
+	timekeeper.UnimplementedTimeKeeperServiceServer
 	DB           *sql.DB
 	InfluxClient influxdb2.Client
 	RedisClient  *redis.Client
@@ -45,7 +46,7 @@ func (tk *TimeKeeperServer) ConnectSqliteDB() error {
 		return err
 	}
 
-	_, err = tk.DB.Exec("CREATE TABLE IF NOT EXISTS data_sources (id INTEGER PRIMARY KEY AUTOINCREMENT, machine TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)")
+	_, err = tk.DB.Exec("CREATE TABLE IF NOT EXISTS data_sources (id INTEGER PRIMARY KEY AUTOINCREMENT, machine TEXT, tracker TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)")
 	if err != nil {
 		return err
 	}
@@ -69,9 +70,9 @@ func (tk *TimeKeeperServer) Register(ctx context.Context, req *timekeeper.Regist
 	resp := &timekeeper.RegisterResponse{}
 	if req.Id == 0 {
 		result, err := tk.DB.Exec(
-			`INSERT INTO data_sources (machine)
-			SELECT (?)
-			WHERE NOT EXISTS(SELECT 1 FROM data_sources WHERE machine = ?)`, req.MachineName, req.MachineName)
+			`INSERT INTO data_sources (machine, tracker)
+			SELECT ?, ?
+			WHERE NOT EXISTS(SELECT 1 FROM data_sources WHERE machine = ? AND tracker = ?)`, req.MachineName, req.MachineName, req.TrackerName)
 		if err != nil {
 			log.Printf("Error inserting data into db: %v", err)
 			return nil, err
@@ -107,12 +108,12 @@ func (tk *TimeKeeperServer) SendData(ctx context.Context, req *timekeeper.SendDa
 	var last_err error
 
 	// check if point is the same as last point so we can skip it
-	res, err := tk.RedisClient.HMGet(ctx, fmt.Sprint(req.GetId()), "machine", "label", "state").Result()
+	res, err := tk.RedisClient.HMGet(ctx, fmt.Sprint(req.GetId()), "machine", "tracker", "label", "state").Result()
 	if err != nil {
 		last_err = err
 		log.Printf("Error getting data from redis: %v", err)
 	}
-	machine, label, state := res[0], res[1], res[2]
+	machine, tracker, label, state := res[0], res[1], res[2], res[3]
 
 	for _, data := range req.DataPoints {
 		if data.GetLabel() == label && data.GetState().String() == state {
@@ -121,7 +122,7 @@ func (tk *TimeKeeperServer) SendData(ctx context.Context, req *timekeeper.SendDa
 
 		p := influxdb2.NewPoint(
 			"test",
-			map[string]string{"machine": machine.(string)},
+			map[string]string{"machine": machine.(string), "tracker": tracker.(string)},
 			map[string]interface{}{"label": data.GetLabel()},
 			data.GetTimestamp().AsTime(),
 		)
@@ -132,12 +133,15 @@ func (tk *TimeKeeperServer) SendData(ctx context.Context, req *timekeeper.SendDa
 		wapi.WritePoint(p)
 	}
 
+	// do i still need to set machine and tracker?
 	ret := tk.RedisClient.HMSet(
 		ctx,
 		fmt.Sprint(req.Id),
 		map[string]interface{}{
-			"label": label,
-			"state": state,
+			"machine": machine,
+			"tracker": tracker,
+			"label":   label,
+			"state":   state,
 		},
 	)
 

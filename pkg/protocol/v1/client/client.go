@@ -14,24 +14,29 @@ type EventListener interface {
 
 type TKClient struct {
 	eventListener EventListener
-	grpcClient  protocol_v1.TimeKeeperServiceClient
-	id 			uint64
-	conn 		*grpc.ClientConn
+	grpcClient    protocol_v1.TimeKeeperServiceClient
+	id            uint64
+	conn          *grpc.ClientConn
 
 	lastEvent protocol_v1.DataPoint
 	dataQueue []*protocol_v1.DataPoint
 }
 
+type TimeKeeperRegistration struct {
+	MachineName string
+	TrackerName string
+}
+
 type TKClientOption func(*TKClient) error
 
-func NewTKClient(ctx context.Context, conn *grpc.ClientConn, machineName string, opts ...TKClientOption) (*TKClient, error) {
+func NewTKClient(ctx context.Context, conn *grpc.ClientConn, tkRegistration TimeKeeperRegistration, opts ...TKClientOption) (*TKClient, error) {
 	tk := &TKClient{
 		grpcClient: protocol_v1.NewTimeKeeperServiceClient(conn),
-		conn: conn,
-		dataQueue: make([]*protocol_v1.DataPoint, 1024),
+		conn:       conn,
+		dataQueue:  make([]*protocol_v1.DataPoint, 1024),
 	}
 
-	resp, err := tk.grpcClient.Register(ctx, &protocol_v1.RegisterRequest{MachineName: machineName})
+	resp, err := tk.grpcClient.Register(ctx, &protocol_v1.RegisterRequest{MachineName: tkRegistration.MachineName, TrackerName: tkRegistration.TrackerName})
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +78,7 @@ func (client *TKClient) sendEvent(ctx context.Context, event *protocol_v1.DataPo
 	}
 
 	_, err := client.grpcClient.SendData(ctx, &protocol_v1.SendDataRequest{
-		Id: client.id,
+		Id:         client.id,
 		DataPoints: client.dataQueue,
 	})
 
