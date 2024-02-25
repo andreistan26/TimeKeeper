@@ -40,7 +40,7 @@ type TimeKeeperServer struct {
 func (tk *TimeKeeperServer) ConnectSqliteDB() error {
 	var err error
 	if tkDbPath == "" {
-		return errors.New("TK_DB_PATH env var not set")
+		return fmt.Errorf("TK_DB_PATH env var not set")
 	}
 	if tk.DB, err = sql.Open("sqlite3", tkDbPath); err != nil {
 		return err
@@ -72,7 +72,7 @@ func (tk *TimeKeeperServer) Register(ctx context.Context, req *timekeeper.Regist
 		result, err := tk.DB.Exec(
 			`INSERT INTO data_sources (machine, tracker)
 			SELECT ?, ?
-			WHERE NOT EXISTS(SELECT 1 FROM data_sources WHERE machine = ? AND tracker = ?)`, req.MachineName, req.MachineName, req.TrackerName)
+			WHERE NOT EXISTS(SELECT 1 FROM data_sources WHERE machine = ? AND tracker = ?)`, req.MachineName, req.TrackerName, req.MachineName, req.TrackerName)
 		if err != nil {
 			log.Printf("Error inserting data into db: %v", err)
 			return nil, err
@@ -89,6 +89,7 @@ func (tk *TimeKeeperServer) Register(ctx context.Context, req *timekeeper.Regist
 			fmt.Sprint(id),
 			map[string]interface{}{
 				"machine": req.MachineName,
+				"tracker": req.TrackerName,
 				"label":   "",
 				"state":   "",
 			},

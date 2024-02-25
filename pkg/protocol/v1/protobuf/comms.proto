@@ -1,8 +1,10 @@
 syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
 
 package timekeeper;
+
 option go_package = "github.com/andreistan26/TimeKeeper/pkg/protocol/v1/protobuf";
 
 enum DataPointState {
@@ -40,6 +42,16 @@ message SendDataResponse {
 }
 
 service TimeKeeperService {
-    rpc Register(RegisterRequest) returns (RegisterResponse);
-    rpc SendData(SendDataRequest) returns (SendDataResponse);
+    rpc Register(RegisterRequest) returns (RegisterResponse) {
+        option (google.api.http) = {
+            post: "/v1/register"
+            body: "*"
+        };
+    }
+    rpc SendData(SendDataRequest) returns (SendDataResponse) {
+        option (google.api.http) = {
+            post: "/v1/send_data"
+            body: "*"
+        };
+    }
 }

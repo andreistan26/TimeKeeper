@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v3.12.4
-// source: pkg/protocol/v1/protobuf/comms.proto
+// source: comms.proto
 
 package protobuf
 
@@ -137,5 +137,5 @@ var TimeKeeperService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "pkg/protocol/v1/protobuf/comms.proto",
+	Metadata: "comms.proto",
 }
