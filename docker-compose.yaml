@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server
+    container_name: clickhouse-timekeeper
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    environment:
+      - CLICKHOUSE_USER=root
+      - CLICKHOUSE_PASSWORD=root
+    volumes:
+      - ./data/ch_data:/var/lib/clickhouse/
+      - ./data/ch_logs:/var/log/clickhouse-server/
+    ports:
+      - "18123:8123"
+      - "19000:9000"
+    restart: unless-stopped
+
+  ch-ui:
+    image: ghcr.io/caioricciuti/ch-ui:latest
+    restart: always
+    ports:
+      - "5521:5521"
+    environment:
+      VITE_CLICKHOUSE_URL: "http://localhost:18123"
+      VITE_CLICKHOUSE_USER: "root"
+      VITE_CLICKHOUSE_PASS: "root"
+      
+      # Optional: Reverse Proxy Support
+      VITE_BASE_PATH: "/"

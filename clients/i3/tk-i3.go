@@ -3,15 +3,19 @@ package main
 import (
 	"context"
 	"log"
-	"os"
 
-	timekeeper "github.com/andreistan26/TimeKeeper/pkg/protocol/v1/protobuf"
+	timekeeper "github.com/andreistan26/TimeKeeper/pkg/gen/v1"
 	"go.i3wm.org/i3/v4"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/spf13/cobra"
+)
+
+const (
+	TrackerName string = "i3"
+	QueueSize int = 128
 )
 
 var rootCommand = &cobra.Command{
@@ -29,6 +33,7 @@ var startCommand = &cobra.Command{
 
 		conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
+			log.Fatalf("could not connect to server: %v", err)
 			return err
 		}
 
@@ -38,16 +43,6 @@ var startCommand = &cobra.Command{
 		}
 		defer close(client.EventChannel)
 
-		resp, err := client.GrpcClient.Register(ctx, &timekeeper.RegisterRequest{
-			MachineName: "desktop",
-			TrackerName: "i3",
-		})
-		if err != nil {
-			return err
-		}
-
-		client.Id = resp.Id
-
 		client.StartDataDispatcher(ctx)
 
 		return nil
@@ -55,16 +50,17 @@ var startCommand = &cobra.Command{
 }
 
 var (
-	LastDataPoint                          = timekeeper.DataPoint{}
+	LastDataPoint = timekeeper.DataPoint{}
 	DataPointQueue []*timekeeper.DataPoint = make([]*timekeeper.DataPoint, 0)
 )
 
 type TKClient struct {
 	EventChannel chan i3.WindowEvent
 	GrpcClient   timekeeper.TimeKeeperServiceClient
-	Id           uint64
+	MachineName  string
 }
 
+// TODO: add cancel with ctx
 func StartWindowEventListener() chan i3.WindowEvent {
 	recv := i3.Subscribe(i3.WindowEventType)
 	c := make(chan i3.WindowEvent, 16)
@@ -88,25 +84,24 @@ func (client *TKClient) PushDataPoint(ctx context.Context, event *i3.WindowEvent
 		State:     timekeeper.DataPointState_SAMPLE,
 	}
 
-	if len(DataPointQueue) < 1024 {
+	if len(DataPointQueue) < QueueSize {
 		DataPointQueue = append(DataPointQueue, dataPoint)
+		return nil
 	}
 
 	_, err := client.GrpcClient.SendData(ctx, &timekeeper.SendDataRequest{
-		Id:         client.Id,
+		MachineName: client.MachineName,
+		TrackerName: TrackerName,
 		DataPoints: DataPointQueue,
 	})
 	if err != nil {
-		if len(DataPointQueue) == 1024 {
-			log.Println("DataPointQueue is full, dropping data point")
-		}
-		return err
-	} else {
-		LastDataPoint = *dataPoint
-		DataPointQueue = DataPointQueue[:0]
+		log.Println("error send data: %v", err)
 	}
 
-	return nil
+	DataPointQueue = DataPointQueue[:0]
+	LastDataPoint = *dataPoint
+
+	return err
 }
 
 func (client *TKClient) StartDataDispatcher(ctx context.Context) {
@@ -120,7 +115,6 @@ func (client *TKClient) StartDataDispatcher(ctx context.Context) {
 func main() {
 	rootCommand.AddCommand(startCommand)
 	if err := rootCommand.Execute(); err != nil {
-		log.Println(err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 }

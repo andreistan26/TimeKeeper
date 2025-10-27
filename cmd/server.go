@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/andreistan26/TimeKeeper/server"
+	"github.com/andreistan26/TimeKeeper/pkg/server"
 	"github.com/spf13/cobra"
 )
 

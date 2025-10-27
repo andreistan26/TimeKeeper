@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package timekeeper;
+
+import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
+
+option go_package = "github.com/andreistan26/TimeKeeper/pkg/protobuf";
+
+enum DataPointState {
+    EXIT = 0;
+    INACTIVE = 1;
+    ENTER = 2;
+    SAMPLE = 3;
+}
+
+message DataPoint {
+	google.protobuf.Timestamp timestamp = 1 [ json_name = "product_id" ];
+    string label = 2 [ json_name = "label" ];
+    DataPointState state = 3 [ json_name = "state" ];
+}
+
+message SendDataRequest {
+    string machine_name = 2 [ json_name = "machine_name" ];
+    string tracker_name = 3 [ json_name = "tracker_name" ];
+	repeated DataPoint data_points = 1;
+}
+
+message SendDataResponse {
+	// EMPTY
+}
+
+service TimeKeeperService {
+    rpc SendData(SendDataRequest) returns (SendDataResponse) {
+        option (google.api.http) = {
+            post: "/v1/send_data"
+            body: "*"
+        };
+    }
+}

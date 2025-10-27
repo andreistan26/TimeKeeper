@@ -2,8 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"os"
+	"log"
 
 	"github.com/andreistan26/TimeKeeper/cmd"
 	"github.com/spf13/cobra"
@@ -21,7 +20,6 @@ var rootCmd = &cobra.Command{
 func main() {
 	rootCmd.AddCommand(cmd.CreateServerCommand())
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "%v", err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 }
